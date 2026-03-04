@@ -29,14 +29,25 @@ public class OutfitService {
             Vibe/Aesthetic: %s
             Weather: %s
             
-            Wardrobe:
             %s
             
-            Make sure the outfit strongly reflects the %s aesthetic in your suggestion and reasoning.
-            Respond with a JSON object only, no markdown:
-            {"top":"item description","bottom":"item description","shoes":"item description","reason":"why this outfit works for the %s vibe"}
-            Use only items from the wardrobe list above.
-        """, vibe, occasion, vibe, weather, wardrobeList, vibe, vibe);
+            Make sure the outfit strongly reflects the %s aesthetic.
+            You MUST respond with ONLY a valid JSON object, no markdown, no extra text, like this:
+            {
+              "name": "outfit name",
+              "pieces": [
+                {"name": "White Linen Shirt", "color": "white", "description": "tucked in, sleeves rolled"},
+                {"name": "Navy Trousers", "color": "navy", "description": "tailored, straight leg"},
+                {"name": "White Sneakers", "color": "white", "description": "clean, minimal"}
+              ],
+              "stylistNote": "why this outfit works"
+            }
+        """,
+                        vibe, occasion, vibe, weather,
+                        wardrobe.isEmpty()
+                                ? "No wardrobe provided — suggest general outfit items that fit the aesthetic."
+                                : "Use only items from this wardrobe:\n" + wardrobeList,
+                        vibe);
 
         Map<String, Object> requestBody = Map.of(
                 "model", "gpt-4o-mini",
