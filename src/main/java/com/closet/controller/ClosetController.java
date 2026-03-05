@@ -48,20 +48,23 @@ public class ClosetController {
     }
 
     @PostMapping("/items/analyze")
-    public ClothingItem analyzeAndSaveItem(@RequestBody Map<String, Object> body) {
+    public List<ClothingItem> analyzeAndSaveItems(@RequestBody Map<String, Object> body) {
         String base64Image = (String) body.get("image");
         Long userId = ((Number) body.get("userId")).longValue();
 
-        Map<String, String> analysis = clothingAnalysisService.analyzeClothing(base64Image);
+        List<Map<String, String>> analyses = clothingAnalysisService.analyzeClothing(base64Image);
 
-        ClothingItem item = new ClothingItem();
-        item.setUserId(userId);
-        item.setCategory(analysis.get("category"));
-        item.setColor(analysis.get("color"));
-        item.setStyle(analysis.get("style"));
-        item.setDescription(analysis.get("description"));
-
-        return clothingItemRepository.save(item);
+        List<ClothingItem> saved = new java.util.ArrayList<>();
+        for (Map<String, String> analysis : analyses) {
+            ClothingItem item = new ClothingItem();
+            item.setUserId(userId);
+            item.setCategory(analysis.get("category"));
+            item.setColor(analysis.get("color"));
+            item.setStyle(analysis.get("style"));
+            item.setDescription(analysis.get("description"));
+            saved.add(clothingItemRepository.save(item));
+        }
+        return saved;
     }
 
     @GetMapping("/items/{userId}")
