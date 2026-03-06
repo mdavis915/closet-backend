@@ -6,6 +6,7 @@ import com.closet.repository.ClothingItemRepository;
 import com.closet.repository.UserRepository;
 import com.closet.service.ClothingAnalysisService;
 import com.closet.service.OutfitService;
+import com.closet.service.TryOnService;
 import com.closet.service.WeatherService;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -21,15 +22,18 @@ public class ClosetController {
     private final ClothingAnalysisService clothingAnalysisService;
     private final OutfitService outfitService;
     private final WeatherService weatherService;
+    private final TryOnService tryOnService;
+
 
     public ClosetController(UserRepository userRepository, ClothingItemRepository clothingItemRepository,
                             ClothingAnalysisService clothingAnalysisService, OutfitService outfitService,
-                            WeatherService weatherService) {
+                            WeatherService weatherService, TryOnService tryOnService) {
         this.userRepository = userRepository;
         this.clothingItemRepository = clothingItemRepository;
         this.clothingAnalysisService = clothingAnalysisService;
         this.outfitService = outfitService;
         this.weatherService = weatherService;
+        this.tryOnService = tryOnService;
     }
 
     @PostMapping("/users")
@@ -100,5 +104,14 @@ public class ClosetController {
             @RequestParam(required = false) String style,
             @RequestParam(required = false) String season) {
         return clothingItemRepository.filterItems(userId, category, color, style, season);
+    }
+    // Add endpoint:
+    @PostMapping("/tryon")
+    public Map<String, String> tryOn(@RequestBody Map<String, Object> body) {
+        String humanImage = (String) body.get("humanImage");
+        String garmentImage = (String) body.get("garmentImage");
+        String description = (String) body.get("description");
+        String resultUrl = tryOnService.tryOn(humanImage, garmentImage, description);
+        return Map.of("resultUrl", resultUrl);
     }
 }
