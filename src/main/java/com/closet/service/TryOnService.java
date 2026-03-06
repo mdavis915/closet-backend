@@ -21,7 +21,8 @@ public class TryOnService {
         Map<String, Object> input = Map.of(
                 "human_image", humanUrl,
                 "garment_image", garmentUrl,
-                "garment_description", garmentDescription
+                "garment_description", garmentDescription,
+                "hf_token", System.getenv("HF_TOKEN")
         );
 
         Map<String, Object> requestBody = Map.of(
