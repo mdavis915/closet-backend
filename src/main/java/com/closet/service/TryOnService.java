@@ -19,17 +19,13 @@ public class TryOnService {
         String garmentUrl = "data:image/jpeg;base64," + garmentImageBase64;
 
         Map<String, Object> input = Map.of(
-                "garm_img", garmentUrl,
-                "human_img", humanUrl,
-                "garment_des", garmentDescription,
-                "category", garmentDescription.toLowerCase().contains("bottom") ||
-                        garmentDescription.toLowerCase().contains("skirt") ||
-                        garmentDescription.toLowerCase().contains("pant") ||
-                        garmentDescription.toLowerCase().contains("jean") ? "bottoms" : "upper_body"
+                "human_image", humanUrl,
+                "garment_image", garmentUrl,
+                "garment_description", garmentDescription
         );
 
         Map<String, Object> requestBody = Map.of(
-                "version", "0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985",
+                "version", "cc41d1b963023987ed2ddf26e9264efcc96ee076640115c303f95b0010f6a958",
                 "input", input
         );
 
