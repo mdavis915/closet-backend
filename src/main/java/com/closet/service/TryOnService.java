@@ -21,7 +21,11 @@ public class TryOnService {
         Map<String, Object> input = Map.of(
                 "garm_img", garmentUrl,
                 "human_img", humanUrl,
-                "garment_des", garmentDescription
+                "garment_des", garmentDescription,
+                "category", garmentDescription.toLowerCase().contains("bottom") ||
+                        garmentDescription.toLowerCase().contains("skirt") ||
+                        garmentDescription.toLowerCase().contains("pant") ||
+                        garmentDescription.toLowerCase().contains("jean") ? "bottoms" : "upper_body"
         );
 
         Map<String, Object> requestBody = Map.of(
