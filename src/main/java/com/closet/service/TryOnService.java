@@ -52,8 +52,12 @@ public class TryOnService {
 
             String status = (String) poll.get("status");
             if ("succeeded".equals(status)) {
-                List output = (List) poll.get("output");
-                return (String) output.get(0);
+                Object output = poll.get("output");
+                if (output instanceof List) {
+                    return (String) ((List) output).get(0);
+                } else {
+                    return (String) output;
+                }
             } else if ("failed".equals(status)) {
                 throw new RuntimeException("Try-on failed");
             }
