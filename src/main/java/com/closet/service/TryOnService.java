@@ -22,15 +22,33 @@ public class TryOnService {
         String humanUrl = "data:image/jpeg;base64," + humanImageBase64;
         String garmentUrl = "data:image/jpeg;base64," + garmentImageBase64;
 
+        // is_checked_crop = true means the garment is a BOTTOM (pants, skirt, etc.)
+        // false means it's a TOP — this was inverted before, causing misclassification
+        String descLower = garmentDescription.toLowerCase();
+        boolean isBottom = descLower.contains("pant") || descLower.contains("jean") ||
+                descLower.contains("skirt") || descLower.contains("bottom") ||
+                descLower.contains("short") || descLower.contains("trouser") ||
+                descLower.contains("legging");
+
+        // Also check the category prefix we now send: "Bottom: ..."
+        if (descLower.startsWith("bottom:")) {
+            isBottom = true;
+        }
+
+        log.info("Try-on: description='{}' isBottom={}", garmentDescription, isBottom);
+
         Map<String, Object> input = Map.of(
-                "human_image", humanUrl,
-                "garment_image", garmentUrl,
-                "garment_description", garmentDescription,
-                "hf_token", System.getenv("HF_TOKEN")
+                "garm_img",        garmentUrl,
+                "human_img",       humanUrl,
+                "garment_des",     garmentDescription,
+                "is_checked",      true,
+                "is_checked_crop", isBottom,
+                "denoise_steps",   30,
+                "seed",            42
         );
 
         Map<String, Object> requestBody = Map.of(
-                "version", "cc41d1b963023987ed2ddf26e9264efcc96ee076640115c303f95b0010f6a958",
+                "version", "c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4",
                 "input", input
         );
 
@@ -45,7 +63,7 @@ public class TryOnService {
         String predictionId = (String) response.get("id");
         log.info("Try-on prediction started: {}", predictionId);
 
-        for (int i = 0; i < 40; i++) {
+        for (int i = 0; i < 30; i++) {
             try { Thread.sleep(3000); } catch (InterruptedException e) {}
 
             Map poll = restClient.get()
@@ -57,28 +75,22 @@ public class TryOnService {
             String status = (String) poll.get("status");
             Object output = poll.get("output");
 
-            log.info("Poll {}: status={} output_type={} output={}", i, status,
-                    output == null ? "null" : output.getClass().getSimpleName(), output);
+            log.info("Poll {}: status={} output={}", i, status, output);
 
             if ("succeeded".equals(status)) {
                 if (output instanceof List) {
                     List outputList = (List) output;
-                    if (!outputList.isEmpty()) {
-                        return (String) outputList.get(0);
-                    }
+                    if (!outputList.isEmpty()) return (String) outputList.get(0);
                 } else if (output instanceof String) {
                     return (String) output;
-                } else if (output != null) {
-                    log.warn("Unexpected output type: {} value: {}", output.getClass(), output);
-                    return output.toString();
                 }
-                throw new RuntimeException("Try-on succeeded but output was empty or null");
+                throw new RuntimeException("Try-on succeeded but output was empty");
             } else if ("failed".equals(status) || "canceled".equals(status)) {
                 Object error = poll.get("error");
                 log.error("Try-on failed: {}", error);
                 throw new RuntimeException("Try-on failed: " + error);
             }
         }
-        throw new RuntimeException("Try-on timed out after 2 minutes");
+        throw new RuntimeException("Try-on timed out");
     }
 }
