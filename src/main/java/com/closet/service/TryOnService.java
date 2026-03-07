@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,33 +23,39 @@ public class TryOnService {
         String humanUrl = "data:image/jpeg;base64," + humanImageBase64;
         String garmentUrl = "data:image/jpeg;base64," + garmentImageBase64;
 
-        // is_checked_crop = true means the garment is a BOTTOM (pants, skirt, etc.)
-        // false means it's a TOP — this was inverted before, causing misclassification
         String descLower = garmentDescription.toLowerCase();
-        boolean isBottom = descLower.contains("pant") || descLower.contains("jean") ||
-                descLower.contains("skirt") || descLower.contains("bottom") ||
-                descLower.contains("short") || descLower.contains("trouser") ||
-                descLower.contains("legging");
 
-        // Also check the category prefix we now send: "Bottom: ..."
-        if (descLower.startsWith("bottom:")) {
-            isBottom = true;
+        // Determine garment slot — use separate fields instead of broken is_checked_crop
+        String slot; // "top", "bottom", or "dress"
+        if (descLower.startsWith("dress:") || descLower.contains("dress") || descLower.contains("jumpsuit")) {
+            slot = "dress";
+        } else if (descLower.startsWith("bottom:") || descLower.contains("pant") || descLower.contains("jean") ||
+                descLower.contains("skirt") || descLower.contains("short") || descLower.contains("trouser") ||
+                descLower.contains("legging")) {
+            slot = "bottom";
+        } else {
+            slot = "top";
         }
 
-        log.info("Try-on: description='{}' isBottom={}", garmentDescription, isBottom);
+        log.info("Try-on: description='{}' slot={}", garmentDescription, slot);
 
-        Map<String, Object> input = Map.of(
-                "garm_img",        garmentUrl,
-                "human_img",       humanUrl,
-                "garment_des",     garmentDescription,
-                "is_checked",      true,
-                "is_checked_crop", isBottom,
-                "denoise_steps",   30,
-                "seed",            42
-        );
+        // Build input — only populate the relevant slot
+        Map<String, Object> input = new HashMap<>();
+        input.put("model_image", humanUrl);
+        input.put("garment_des", garmentDescription);
+        input.put("denoise_steps", 30);
+        input.put("seed", 42);
+
+        if ("top".equals(slot)) {
+            input.put("top_image", garmentUrl);
+        } else if ("bottom".equals(slot)) {
+            input.put("bottom_image", garmentUrl);
+        } else {
+            input.put("dress_image", garmentUrl);
+        }
 
         Map<String, Object> requestBody = Map.of(
-                "version", "c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4",
+                "version", "906425dbca90663ff5427624839572cc56ea7d380343d13e2a4c4b09d3f0c30f",
                 "input", input
         );
 
@@ -63,7 +70,7 @@ public class TryOnService {
         String predictionId = (String) response.get("id");
         log.info("Try-on prediction started: {}", predictionId);
 
-        for (int i = 0; i < 30; i++) {
+        for (int i = 0; i < 40; i++) {
             try { Thread.sleep(3000); } catch (InterruptedException e) {}
 
             Map poll = restClient.get()
