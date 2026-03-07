@@ -23,16 +23,26 @@ public class TryOnService {
 
         String descLower = garmentDescription.toLowerCase();
 
-        // Map to IDM-VTON v906425db category values
+        // Determine category — check category prefix first (most reliable),
+        // then fall back to keyword matching in the description
         String category;
-        if (descLower.startsWith("dress:") || descLower.contains("dress") || descLower.contains("jumpsuit")) {
+        if (descLower.startsWith("dress:") || descLower.startsWith("outerwear:")) {
             category = "dresses";
-        } else if (descLower.startsWith("bottom:") || descLower.contains("pant") || descLower.contains("jean") ||
-                descLower.contains("skirt") || descLower.contains("short") || descLower.contains("trouser") ||
-                descLower.contains("legging")) {
+        } else if (descLower.startsWith("bottom:")) {
             category = "lower_body";
-        } else {
+        } else if (descLower.startsWith("top:") || descLower.startsWith("accessory:") || descLower.startsWith("shoes:")) {
             category = "upper_body";
+        } else {
+            // Fallback keyword matching — be conservative to avoid false positives
+            if (descLower.contains("dress") || descLower.contains("jumpsuit") || descLower.contains("romper")) {
+                category = "dresses";
+            } else if (descLower.contains("pants") || descLower.contains("jeans") ||
+                    descLower.contains("skirt") || descLower.contains("shorts") ||  // "shorts" not "short"
+                    descLower.contains("trousers") || descLower.contains("leggings")) {
+                category = "lower_body";
+            } else {
+                category = "upper_body";
+            }
         }
 
         log.info("Try-on: description='{}' category={}", garmentDescription, category);
@@ -42,7 +52,7 @@ public class TryOnService {
                 "human_img",   humanUrl,
                 "garment_des", garmentDescription,
                 "category",    category,
-                "crop",        true,   // handles non 3:4 photos
+                "crop",        true,
                 "steps",       30,
                 "seed",        42
         );
@@ -78,7 +88,6 @@ public class TryOnService {
             log.info("Poll {}: status={} output={}", i, status, output);
 
             if ("succeeded".equals(status)) {
-                // v906425db returns a single string URI, not a list
                 if (output instanceof String) {
                     return (String) output;
                 }
