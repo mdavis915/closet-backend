@@ -5,6 +5,7 @@ import com.closet.model.User;
 import com.closet.repository.ClothingItemRepository;
 import com.closet.repository.UserRepository;
 import com.closet.service.ClothingAnalysisService;
+import com.closet.service.CloudinaryService;
 import com.closet.service.OutfitService;
 import com.closet.service.TryOnService;
 import com.closet.service.WeatherService;
@@ -23,17 +24,19 @@ public class ClosetController {
     private final OutfitService outfitService;
     private final WeatherService weatherService;
     private final TryOnService tryOnService;
-
+    private final CloudinaryService cloudinaryService;
 
     public ClosetController(UserRepository userRepository, ClothingItemRepository clothingItemRepository,
                             ClothingAnalysisService clothingAnalysisService, OutfitService outfitService,
-                            WeatherService weatherService, TryOnService tryOnService) {
+                            WeatherService weatherService, TryOnService tryOnService,
+                            CloudinaryService cloudinaryService) {
         this.userRepository = userRepository;
         this.clothingItemRepository = clothingItemRepository;
         this.clothingAnalysisService = clothingAnalysisService;
         this.outfitService = outfitService;
         this.weatherService = weatherService;
         this.tryOnService = tryOnService;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @PostMapping("/users")
@@ -48,6 +51,11 @@ public class ClosetController {
 
     @PostMapping("/items")
     public ClothingItem addItem(@RequestBody ClothingItem item) {
+        // Upload base64 image to Cloudinary if present
+        if (item.getImageUrl() != null && item.getImageUrl().startsWith("data:")) {
+            String cloudUrl = cloudinaryService.uploadBase64Image(item.getImageUrl());
+            item.setImageUrl(cloudUrl);
+        }
         return clothingItemRepository.save(item);
     }
 
@@ -55,6 +63,14 @@ public class ClosetController {
     public List<ClothingItem> analyzeAndSaveItems(@RequestBody Map<String, Object> body) {
         String base64Image = (String) body.get("image");
         Long userId = ((Number) body.get("userId")).longValue();
+
+        // Upload image to Cloudinary once, reuse URL for all items in photo
+        String cloudinaryUrl = null;
+        try {
+            cloudinaryUrl = cloudinaryService.uploadBase64Image(base64Image);
+        } catch (Exception e) {
+            // If upload fails, continue without image — items still get saved
+        }
 
         List<Map<String, String>> analyses = clothingAnalysisService.analyzeClothing(base64Image);
 
@@ -66,6 +82,7 @@ public class ClosetController {
             item.setColor(analysis.get("color"));
             item.setStyle(analysis.get("style"));
             item.setDescription(analysis.get("description"));
+            item.setImageUrl(cloudinaryUrl);
             saved.add(clothingItemRepository.save(item));
         }
         return saved;
@@ -105,7 +122,7 @@ public class ClosetController {
             @RequestParam(required = false) String season) {
         return clothingItemRepository.filterItems(userId, category, color, style, season);
     }
-    // Add endpoint:
+
     @PostMapping("/tryon")
     public Map<String, String> tryOn(@RequestBody Map<String, Object> body) {
         String humanImage = (String) body.get("humanImage");
