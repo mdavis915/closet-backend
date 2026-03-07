@@ -5,8 +5,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Service
@@ -25,34 +23,29 @@ public class TryOnService {
 
         String descLower = garmentDescription.toLowerCase();
 
-        // Determine garment slot — use separate fields instead of broken is_checked_crop
-        String slot; // "top", "bottom", or "dress"
+        // Map to IDM-VTON v906425db category values
+        String category;
         if (descLower.startsWith("dress:") || descLower.contains("dress") || descLower.contains("jumpsuit")) {
-            slot = "dress";
+            category = "dresses";
         } else if (descLower.startsWith("bottom:") || descLower.contains("pant") || descLower.contains("jean") ||
                 descLower.contains("skirt") || descLower.contains("short") || descLower.contains("trouser") ||
                 descLower.contains("legging")) {
-            slot = "bottom";
+            category = "lower_body";
         } else {
-            slot = "top";
+            category = "upper_body";
         }
 
-        log.info("Try-on: description='{}' slot={}", garmentDescription, slot);
+        log.info("Try-on: description='{}' category={}", garmentDescription, category);
 
-        // Build input — only populate the relevant slot
-        Map<String, Object> input = new HashMap<>();
-        input.put("model_image", humanUrl);
-        input.put("garment_des", garmentDescription);
-        input.put("denoise_steps", 30);
-        input.put("seed", 42);
-
-        if ("top".equals(slot)) {
-            input.put("top_image", garmentUrl);
-        } else if ("bottom".equals(slot)) {
-            input.put("bottom_image", garmentUrl);
-        } else {
-            input.put("dress_image", garmentUrl);
-        }
+        Map<String, Object> input = Map.of(
+                "garm_img",    garmentUrl,
+                "human_img",   humanUrl,
+                "garment_des", garmentDescription,
+                "category",    category,
+                "crop",        true,   // handles non 3:4 photos
+                "steps",       30,
+                "seed",        42
+        );
 
         Map<String, Object> requestBody = Map.of(
                 "version", "906425dbca90663ff5427624839572cc56ea7d380343d13e2a4c4b09d3f0c30f",
@@ -85,10 +78,8 @@ public class TryOnService {
             log.info("Poll {}: status={} output={}", i, status, output);
 
             if ("succeeded".equals(status)) {
-                if (output instanceof List) {
-                    List outputList = (List) output;
-                    if (!outputList.isEmpty()) return (String) outputList.get(0);
-                } else if (output instanceof String) {
+                // v906425db returns a single string URI, not a list
+                if (output instanceof String) {
                     return (String) output;
                 }
                 throw new RuntimeException("Try-on succeeded but output was empty");
