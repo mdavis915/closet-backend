@@ -39,19 +39,30 @@ public class ClosetController {
         this.cloudinaryService = cloudinaryService;
     }
 
+    private User findOrCreateUser(Long userId) {
+        return userRepository.findById(userId).orElseGet(() -> {
+            User newUser = new User();
+            newUser.setId(userId);
+            newUser.setName("User");
+            newUser.setVibe("casual");
+            newUser.setEmail(userId + "@closet.app");
+            return userRepository.save(newUser);
+        });
+    }
+
     @PostMapping("/users")
     public User createUser(@RequestBody User user) {
+        // Use save with merge so re-onboarding updates existing user
         return userRepository.save(user);
     }
 
     @GetMapping("/users/{id}")
     public User getUser(@PathVariable Long id) {
-        return userRepository.findById(id).orElseThrow();
+        return findOrCreateUser(id);
     }
 
     @PostMapping("/items")
     public ClothingItem addItem(@RequestBody ClothingItem item) {
-        // Upload base64 image to Cloudinary if present
         if (item.getImageUrl() != null && item.getImageUrl().startsWith("data:")) {
             String cloudUrl = cloudinaryService.uploadBase64Image(item.getImageUrl());
             item.setImageUrl(cloudUrl);
@@ -64,12 +75,11 @@ public class ClosetController {
         String base64Image = (String) body.get("image");
         Long userId = ((Number) body.get("userId")).longValue();
 
-        // Upload image to Cloudinary once, reuse URL for all items in photo
         String cloudinaryUrl = null;
         try {
             cloudinaryUrl = cloudinaryService.uploadBase64Image(base64Image);
         } catch (Exception e) {
-            // If upload fails, continue without image — items still get saved
+            // continue without image
         }
 
         List<Map<String, String>> analyses = clothingAnalysisService.analyzeClothing(base64Image);
@@ -99,7 +109,7 @@ public class ClosetController {
         String occasion = (String) body.get("occasion");
         String city = (String) body.get("city");
 
-        User user = userRepository.findById(userId).orElseThrow();
+        User user = findOrCreateUser(userId);
         List<ClothingItem> wardrobe = clothingItemRepository.findByUserId(userId);
         String weather = weatherService.getWeatherSummary(city);
 
@@ -108,7 +118,7 @@ public class ClosetController {
 
     @PutMapping("/users/{id}")
     public User updateUser(@PathVariable Long id, @RequestBody User updatedUser) {
-        User user = userRepository.findById(id).orElseThrow();
+        User user = findOrCreateUser(id);
         user.setVibe(updatedUser.getVibe());
         return userRepository.save(user);
     }
