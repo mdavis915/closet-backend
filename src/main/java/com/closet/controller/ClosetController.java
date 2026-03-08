@@ -9,6 +9,7 @@ import com.closet.service.CloudinaryService;
 import com.closet.service.OutfitService;
 import com.closet.service.TryOnService;
 import com.closet.service.WeatherService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
@@ -140,5 +141,14 @@ public class ClosetController {
         String description = (String) body.get("description");
         String resultUrl = tryOnService.tryOn(humanImage, garmentImage, description);
         return Map.of("resultUrl", resultUrl);
+    }
+
+    @DeleteMapping("/items/{id}")
+    public ResponseEntity<Void> deleteItem(@PathVariable Long id) {
+        if (!clothingItemRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        clothingItemRepository.deleteById(id);
+        return ResponseEntity.noContent().build(); // 204
     }
 }
