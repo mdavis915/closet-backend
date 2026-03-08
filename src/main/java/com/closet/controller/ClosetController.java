@@ -71,31 +71,29 @@ public class ClosetController {
     }
 
     @PostMapping("/items/analyze")
-    public List<ClothingItem> analyzeAndSaveItems(@RequestBody Map<String, Object> body) {
-        String base64Image = (String) body.get("image");
-        Long userId = ((Number) body.get("userId")).longValue();
+    public ResponseEntity<?> analyzeItems(@RequestBody Map<String, String> body) {
+        String base64 = body.get("image");
+        String userId  = body.get("userId");
 
-        String cloudinaryUrl = null;
-        try {
-            cloudinaryUrl = cloudinaryService.uploadBase64Image(base64Image);
-        } catch (Exception e) {
-            // continue without image
+        // Get full list including cropBox from GPT
+        List<Map<String, Object>> analyzed = clothingAnalysisService.analyzeClothing(base64);
+
+        // Save to DB — cropBox is ignored at save time (not a column)
+        for (Map<String, Object> item : analyzed) {
+            ClothingItem ci = new ClothingItem();
+            ci.setUserId(Long.valueOf(userId));
+            ci.setCategory((String) item.get("category"));
+            ci.setColor((String) item.get("color"));
+            ci.setStyle((String) item.get("style"));
+            ci.setSeason((String) item.getOrDefault("season", "All"));
+            ci.setDescription((String) item.get("description"));
+            // imageUrl set by CloudinaryService if you upload here, or left for frontend
+            clothingItemRepository.save(ci);
+            item.put("id", ci.getId()); // so frontend knows the DB id
         }
 
-        List<Map<String, String>> analyses = clothingAnalysisService.analyzeClothing(base64Image);
-
-        List<ClothingItem> saved = new java.util.ArrayList<>();
-        for (Map<String, String> analysis : analyses) {
-            ClothingItem item = new ClothingItem();
-            item.setUserId(userId);
-            item.setCategory(analysis.get("category"));
-            item.setColor(analysis.get("color"));
-            item.setStyle(analysis.get("style"));
-            item.setDescription(analysis.get("description"));
-            item.setImageUrl(cloudinaryUrl);
-            saved.add(clothingItemRepository.save(item));
-        }
-        return saved;
+        // Return full list (cropBox included) so frontend can crop locally
+        return ResponseEntity.ok(analyzed);
     }
 
     @GetMapping("/items/{userId}")
