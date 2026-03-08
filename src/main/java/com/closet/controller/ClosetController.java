@@ -4,11 +4,8 @@ import com.closet.model.ClothingItem;
 import com.closet.model.User;
 import com.closet.repository.ClothingItemRepository;
 import com.closet.repository.UserRepository;
-import com.closet.service.ClothingAnalysisService;
-import com.closet.service.CloudinaryService;
-import com.closet.service.OutfitService;
-import com.closet.service.TryOnService;
-import com.closet.service.WeatherService;
+import com.closet.service.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -26,6 +23,8 @@ public class ClosetController {
     private final WeatherService weatherService;
     private final TryOnService tryOnService;
     private final CloudinaryService cloudinaryService;
+    @Autowired
+    private RecreateService recreateService  ;
 
     public ClosetController(UserRepository userRepository, ClothingItemRepository clothingItemRepository,
                             ClothingAnalysisService clothingAnalysisService, OutfitService outfitService,
@@ -150,5 +149,26 @@ public class ClosetController {
         }
         clothingItemRepository.deleteById(id);
         return ResponseEntity.noContent().build(); // 204
+    }
+
+    @PostMapping("/recreate")
+    public ResponseEntity<String> recreateOutfit(@RequestBody Map<String, String> body) {
+        try {
+            String inspoBase64    = body.get("inspoImage");
+            String wardrobeSummary = body.getOrDefault("wardrobeSummary", "");
+
+            if (inspoBase64 == null || inspoBase64.isBlank()) {
+                return ResponseEntity.badRequest().body("{\"error\":\"inspoImage is required\"}");
+            }
+
+            String result = recreateService.analyzeRecreate(inspoBase64, wardrobeSummary);
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json")
+                    .body(result);
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("{\"error\":\"" + e.getMessage() + "\"}");
+        }
     }
 }
