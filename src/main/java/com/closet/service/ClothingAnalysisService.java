@@ -16,9 +16,9 @@ public class ClothingAnalysisService {
     private final RestClient restClient = RestClient.create();
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public List<Map<String, String>> analyzeClothing(String base64Image) {
+    public List<Map<String, Object>> analyzeClothing(String base64Image) {
         Map<String, Object> requestBody = Map.of(
-                "model", "gpt-4o-mini",
+                "model", "gpt-4o",
                 "messages", List.of(
                         Map.of(
                                 "role", "user",
@@ -26,22 +26,44 @@ public class ClothingAnalysisService {
                                         Map.of("type", "text", "text", """
                 Look at this image carefully. Identify EVERY separate, individual clothing item visible.
                 Each item must be its own separate object in the array — never combine multiple items into one description.
-                For example, if you see a white shirt AND a floral shirt, that is TWO separate objects.
-                
-                Respond ONLY with a JSON array, no markdown:
+
+                Respond ONLY with a JSON array, no markdown, no extra text:
                 [
-                  {"category":"Top/Bottom/Shoes/Outerwear/Dress/Accessory","color":"primary color","style":"casual/formal/sporty/streetwear/elegant","description":"specific description of this single item only"}
+                  {
+                    "category": "Top" | "Bottom" | "Shoes" | "Outerwear" | "Dress" | "Accessory",
+                    "color": "primary color name, single lowercase word (e.g. navy, cream, black)",
+                    "style": "casual" | "formal" | "sporty" | "streetwear" | "elegant",
+                    "season": "Spring" | "Summer" | "Fall" | "Winter" | "All",
+                    "description": "specific description of this single item only (e.g. 'Oversized cream linen shirt')",
+                    "cropBox": {
+                      "topPercent": <number 0-100>,
+                      "leftPercent": <number 0-100>,
+                      "widthPercent": <number 0-100>,
+                      "heightPercent": <number 0-100>
+                    }
+                  }
                 ]
-                
-                If only one item is visible, still return an array with one object.
-                Never describe multiple items in a single description field.
+
+                cropBox rules:
+                - Express the bounding box of each individual clothing item as percentages of the full image dimensions
+                - Add ~5% padding so the item is not cut off at the edges
+                - For a full-body photo: top (shirt/jacket) is roughly top 0-50%, bottom (pants/skirt) roughly 40-100%, shoes roughly 80-100%
+                - For a flat-lay or single item photo: cropBox should cover nearly the full image (e.g. topPercent:2, leftPercent:2, widthPercent:96, heightPercent:96)
+                - Never return null for cropBox — always estimate
+
+                Other rules:
+                - If only one item is visible, still return an array with one object
+                - Never describe multiple items in a single description field
+                - Maximum 6 items per photo
+                - Only include clearly visible items
             """),
                                         Map.of("type", "image_url", "image_url",
-                                                Map.of("url", "data:image/jpeg;base64," + base64Image))
+                                                Map.of("url", "data:image/jpeg;base64," + base64Image,
+                                                        "detail", "low"))
                                 )
                         )
                 ),
-                "max_tokens", 400
+                "max_tokens", 800
         );
 
         Map response = restClient.post()
@@ -61,13 +83,18 @@ public class ClothingAnalysisService {
         try {
             return mapper.readValue(content, List.class);
         } catch (Exception e) {
-            // fallback: wrap whatever came back as a single item
             try {
-                Map<String, String> single = mapper.readValue(content, Map.class);
+                Map<String, Object> single = mapper.readValue(content, Map.class);
                 return List.of(single);
             } catch (Exception ex) {
-                return List.of(Map.of("category", "Top", "color", "unknown",
-                        "style", "casual", "description", "Unidentified item"));
+                return List.of(Map.of(
+                        "category", "Top",
+                        "color", "unknown",
+                        "style", "casual",
+                        "season", "All",
+                        "description", "Unidentified item",
+                        "cropBox", Map.of("topPercent", 5, "leftPercent", 5, "widthPercent", 90, "heightPercent", 90)
+                ));
             }
         }
     }
