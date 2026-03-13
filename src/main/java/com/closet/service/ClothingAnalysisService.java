@@ -18,14 +18,14 @@ public class ClothingAnalysisService {
 
     public List<Map<String, Object>> analyzeClothing(String base64Image) {
         Map<String, Object> requestBody = Map.of(
-                "model", "gpt-4o",
+                "model", "gpt-4o-mini",
                 "messages", List.of(
                         Map.of(
                                 "role", "user",
                                 "content", List.of(
                                         Map.of("type", "text", "text", """
                 Look at this image carefully. Identify EVERY separate, individual clothing item visible.
-                Each item must be its own separate object in the array — never combine multiple items into one description.
+                Each item must be its own separate object in the array — never combine multiple items into one.
 
                 Respond ONLY with a JSON array, no markdown, no extra text:
                 [
@@ -34,24 +34,11 @@ public class ClothingAnalysisService {
                     "color": "primary color name, single lowercase word (e.g. navy, cream, black)",
                     "style": "casual" | "formal" | "sporty" | "streetwear" | "elegant",
                     "season": "Spring" | "Summer" | "Fall" | "Winter" | "All",
-                    "description": "specific description of this single item only (e.g. 'Oversized cream linen shirt')",
-                    "cropBox": {
-                      "topPercent": <number 0-100>,
-                      "leftPercent": <number 0-100>,
-                      "widthPercent": <number 0-100>,
-                      "heightPercent": <number 0-100>
-                    }
+                    "description": "specific description of this single item only (e.g. Oversized cream linen shirt)"
                   }
                 ]
 
-                cropBox rules:
-                - Express the bounding box of each individual clothing item as percentages of the full image dimensions
-                - Add ~5% padding so the item is not cut off at the edges
-                - For a full-body photo: top (shirt/jacket) is roughly top 0-50%, bottom (pants/skirt) roughly 40-100%, shoes roughly 80-100%
-                - For a flat-lay or single item photo: cropBox should cover nearly the full image (e.g. topPercent:2, leftPercent:2, widthPercent:96, heightPercent:96)
-                - Never return null for cropBox — always estimate
-
-                Other rules:
+                Rules:
                 - If only one item is visible, still return an array with one object
                 - Never describe multiple items in a single description field
                 - Maximum 6 items per photo
@@ -63,7 +50,7 @@ public class ClothingAnalysisService {
                                 )
                         )
                 ),
-                "max_tokens", 800
+                "max_tokens", 500
         );
 
         Map response = restClient.post()
@@ -92,8 +79,7 @@ public class ClothingAnalysisService {
                         "color", "unknown",
                         "style", "casual",
                         "season", "All",
-                        "description", "Unidentified item",
-                        "cropBox", Map.of("topPercent", 5, "leftPercent", 5, "widthPercent", 90, "heightPercent", 90)
+                        "description", "Unidentified item"
                 ));
             }
         }
